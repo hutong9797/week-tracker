@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一周做事表</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--text3:#adb5bd;
+  --border:#e8eaed;--accent:#5B7FFF;--accent2:#8B5CF6;--accent-light:#eef1ff;
+  --cat-work:#4A90D9;--cat-study:#2ECC71;--cat-fun:#F39C12;
+  --cat-life:#9B59B6;--cat-exercise:#1ABC9C;--cat-other:#95A5A6;
+  --row-h:42px;
+}
+body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* === HEADER === */
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.header-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.header h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.week-nav{display:flex;align-items:center;gap:6px}
+.week-nav button{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;color:var(--text2);transition:all .2s}
+.week-nav button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.week-label{font-size:13px;font-weight:500;min-width:160px;text-align:center;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .2s}
+.week-label:hover{background:var(--accent-light)}
+.sync-badge{font-size:11px;padding:2px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:4px}
+.sync-badge.cloud{background:#e8f5e9;color:#2e7d32}
+.sync-badge.local{background:#fff3e0;color:#e65100}
+.header-right{display:flex;align-items:center;gap:8px}
+.btn-icon{background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .2s;display:flex;align-items:center;gap:5px}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.btn-stats{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:500;transition:opacity .2s;display:flex;align-items:center;gap:5px}
+.btn-stats:hover{opacity:.85}
+
+/* === LEGEND === */
+.legend{display:flex;gap:10px;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2)}
+.legend-dot{width:8px;height:8px;border-radius:2px}
+
+/* === GRID === */
+.grid-wrap{padding:12px;overflow-x:auto}
+.grid-container{min-width:860px;background:var(--card);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow:hidden}
+.day-headers{display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:2px solid var(--border);background:#fafbfc}
+.day-header{padding:8px 4px 6px;text-align:center;border-left:1px solid var(--border);cursor:default;position:relative}
+.day-header.today{background:var(--accent-light)}
+.day-name{font-size:11px;color:var(--text2)}
+.day-date{font-size:13px;font-weight:600;margin:2px 0}
+.day-weather{font-size:11px;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:3px;margin-top:2px}
+.day-weather .w-icon{font-size:14px}
+.day-weather .w-temp{font-size:10px}
+.day-mood{font-size:16px;cursor:pointer;transition:transform .15s;display:inline-block;margin-top:2px}
+.day-mood:hover{transform:scale(1.25)}
+.corner-cell{border-right:1px solid var(--border)}
+
+.scroll-area{overflow-y:auto;max-height:calc(100vh - 160px);position:relative}
+.time-grid{display:grid;grid-template-columns:48px repeat(7,1fr);position:relative}
+.time-label{height:var(--row-h);display:flex;align-items:flex-start;justify-content:center;font-size:10px;color:var(--text3);border-right:1px solid var(--border);border-bottom:1px solid #f5f5f5;padding-top:2px;user-select:none}
+.day-column{position:relative;border-left:1px solid var(--border)}
+.hour-line{height:var(--row-h);border-bottom:1px solid #f5f5f5;cursor:pointer;transition:background .15s}
+.hour-line:hover{background:rgba(91,127,255,.04)}
+
+/* Activity Blocks */
+.act-block{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 6px;font-size:11px;cursor:pointer;overflow:hidden;z-index:2;transition:box-shadow .2s,transform .12s;border-left:3px solid;line-height:1.35}
+.act-block:hover{box-shadow:0 3px 12px rgba(0,0,0,.15);transform:scale(1.02);z-index:5}
+.act-block .act-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-block .act-time{font-size:9px;opacity:.75}
+.act-block .act-mood{position:absolute;top:2px;right:4px;font-size:11px}
+.act-block .act-note-dot{position:absolute;bottom:2px;right:4px;width:5px;height:5px;border-radius:50%;background:rgba(0,0,0,.3)}
+
+/* Time Now Line */
+.time-now{position:absolute;left:48px;right:0;height:2px;background:#FF4757;z-index:3;pointer-events:none}
+.time-now::before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#FF4757}
+
+/* === MODALS === */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border-radius:14px;padding:24px;width:400px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.18);animation:mIn .2s ease}
+@keyframes mIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+.modal h2{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.close-btn{width:26px;height:26px;border-radius:50%;border:none;background:#f0f0f0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .2s;color:var(--text2)}
+.close-btn:hover{background:#e0e0e0}
+
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:500;margin-bottom:5px;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;transition:border-color .2s;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:50px}
+.form-row{display:flex;gap:10px}
+.form-row .form-group{flex:1}
+
+.cat-options{display:flex;flex-wrap:wrap;gap:6px}
+.cat-opt{padding:5px 12px;border-radius:16px;font-size:11px;font-weight:500;cursor:pointer;border:2px solid transparent;transition:all .15s;user-select:none}
+.cat-opt:hover{transform:scale(1.05)}
+.cat-opt.sel{border-color:rgba(0,0,0,.4);box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+
+.mood-options{display:flex;gap:6px;flex-wrap:wrap}
+.mood-opt{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;border:2px solid transparent;transition:all .12s;background:#f8f9fa}
+.mood-opt:hover{transform:scale(1.15)}
+.mood-opt.sel{border-color:var(--accent);background:var(--accent-light)}
+
+.btn-group{display:flex;gap:8px;margin-top:16px}
+.btn{padding:8px 20px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .2s}
+.btn-pri{background:var(--accent);color:#fff}.btn-pri:hover{opacity:.85}
+.btn-del{background:#FF4757;color:#fff}.btn-del:hover{opacity:.85}
+.btn-sec{background:#f0f0f0;color:var(--text2)}.btn-sec:hover{background:#e0e0e0}
+
+/* === CALENDAR POPUP === */
+.cal-popup{background:var(--card);border-radius:12px;padding:16px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.15)}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-header span{font-size:14px;font-weight:600}
+.cal-header button{background:none;border:none;cursor:pointer;font-size:16px;color:var(--text2);padding:4px 8px;border-radius:4px;transition:background .2s}
+.cal-header button:hover{background:var(--accent-light);color:var(--accent)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-grid .cal-wd{font-size:11px;color:var(--text3);padding:4px 0}
+.cal-grid .cal-day{font-size:12px;padding:6px 0;border-radius:6px;cursor:pointer;transition:all .15s;position:relative}
+.cal-grid .cal-day:hover{background:var(--accent-light)}
+.cal-grid .cal-day.today{font-weight:700;color:var(--accent)}
+.cal-grid .cal-day.selected{background:var(--accent);color:#fff}
+.cal-grid .cal-day.other-month{color:var(--text3)}
+.cal-grid .cal-day.has-data::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.cal-grid .cal-day.selected.has-data::after{background:#fff}
+
+/* === DAY MOOD POPUP === */
+.mood-popup{position:absolute;z-index:50;background:var(--card);border-radius:10px;padding:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);display:none;flex-wrap:wrap;gap:4px;width:180px}
+.mood-popup.active{display:flex}
+.mood-popup .mp-opt{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;transition:transform .12s;border:2px solid transparent}
+.mood-popup .mp-opt:hover{transform:scale(1.2);border-color:var(--accent)}
+.mood-popup .mp-opt.mp-clear{font-size:12px;color:var(--text2);background:#f0f0f0}
+
+/* === STATS === */
+.stats-panel{background:var(--card);border-radius:14px;padding:24px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.18);animation:mIn .2s ease}
+.stats-panel h2{font-size:17px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.stats-card{background:#f8f9fa;border-radius:10px;padding:16px}
+.stats-card h3{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)}
+.stats-card canvas{width:100%!important;height:auto!important}
+.stats-summary{margin-top:16px;background:linear-gradient(135deg,var(--accent-light),#f0e6ff);border-radius:10px;padding:16px}
+.stats-summary h3{font-size:13px;font-weight:600;margin-bottom:10px}
+.summary-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.summary-item{text-align:center;padding:10px;background:var(--card);border-radius:8px}
+.summary-item .val{font-size:20px;font-weight:700;color:var(--accent)}
+.summary-item .lbl{font-size:10px;color:var(--text2);margin-top:3px}
+.cat-stats-list{list-style:none}
+.cat-stats-list li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.cat-stats-list li:last-child{border:none}
+.cat-stats-list .cc{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.cat-stats-list .cn{flex:1}.cat-stats-list .ch{font-weight:600}.cat-stats-list .cp{color:var(--text2);font-size:11px;min-width:36px;text-align:right}
+.mood-summary{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.mood-count{display:flex;align-items:center;gap:3px;font-size:13px;padding:4px 10px;background:var(--card);border-radius:16px}
+.mood-count span{font-weight:600}
+
+/* === SETTINGS === */
+.settings-panel .form-group{margin-bottom:12px}
+.settings-panel .hint{font-size:10px;color:var(--text3);margin-top:3px;line-height:1.4}
+.settings-section{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.settings-section h3{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--accent)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px;cursor:pointer;border:none;font-weight:500}
+.btn-sm.primary{background:var(--accent);color:#fff}.btn-sm.warn{background:#FF4757;color:#fff}
+.btn-sm.ghost{background:#f0f0f0;color:var(--text2)}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.status-dot.ok{background:#2ECC71}.status-dot.no{background:#FF4757}
+
+/* === TOAST === */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 20px;border-radius:8px;font-size:12px;z-index:300;animation:tIn .3s ease;pointer-events:none}
+@keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@media(max-width:768px){.header{padding:10px 12px}.grid-wrap{padding:6px}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <h1>📋 一周做事表</h1>
+    <div class="week-nav">
+      <button onclick="changeWeek(-1)">◀</button>
+      <span class="week-label" id="weekLabel" onclick="openCalendar()"></span>
+      <button onclick="changeWeek(1)">▶</button>
+      <button onclick="goCurrentWeek()">本周</button>
+    </div>
+    <span class="sync-badge local" id="syncBadge">📁 本地</span>
+  </div>
+  <div class="header-right">
+    <button class="btn-icon" onclick="openSettings()">⚙️ 设置</button>
+    <button class="btn-stats" onclick="showStats()">📊 统计</button>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend" id="legend"></div>
+
+<!-- Grid -->
+<div class="grid-wrap">
+  <div class="grid-container">
+    <div class="day-headers" id="dayHeaders"></div>
+    <div class="scroll-area" id="scrollArea">
+      <div class="time-grid" id="timeGrid"></div>
+      <div class="time-now" id="timeNowLine" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="actModal">
+  <div class="modal">
+    <h2><span id="modalTitle">添加事项</span><button class="close-btn" onclick="closeActModal()">✕</button></h2>
+    <input type="hidden" id="editId">
+    <input type="hidden" id="editDate">
+    <div class="form-group"><label>事项名称</label><input type="text" id="actName" placeholder="例如：写周报、读论文…"></div>
+    <div class="form-group"><label>分类</label><div class="cat-options" id="catOpts"></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>开始时间</label><select id="actStart"></select></div>
+      <div class="form-group"><label>结束时间</label><select id="actEnd"></select></div>
+    </div>
+    <div class="form-group"><label>心情</label><div class="mood-options" id="moodOpts"></div></div>
+    <div class="form-group"><label>备注</label><textarea id="actNotes" placeholder="添加备注…"></textarea></div>
+    <div class="btn-group">
+      <button class="btn btn-pri" onclick="saveActivity()">保存</button>
+      <button class="btn btn-del" id="delBtn" onclick="deleteActivity()" style="display:none">删除</button>
+      <button class="btn btn-sec" onclick="closeActModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar Popup -->
+<div class="modal-overlay" id="calOverlay" onclick="closeCalendar(event)">
+  <div class="cal-popup" id="calPopup" onclick="event.stopPropagation()">
+    <div class="cal-header">
+      <button onclick="calPrev()">◀</button>
+      <span id="calTitle"></span>
+      <button onclick="calNext()">▶</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<!-- Day Mood Popup -->
+<div class="mood-popup" id="moodPopup"></div>
+
+<!-- Stats -->
+<div class="modal-overlay" id="statsOverlay">
+  <div class="stats-panel">
+    <h2><span>📊 本周统计</span><button class="close-btn" onclick="closeStats()">✕</button></h2>
+    <div class="stats-grid">
+      <div class="stats-card"><h3>分类时间分布</h3><canvas id="pieChart" width="280" height="280"></canvas></div>
+      <div class="stats-card"><h3>分类明细</h3><ul class="cat-stats-list" id="catStatsList"></ul></div>
+      <div class="stats-card"><h3>每日时长</h3><canvas id="barChart" width="280" height="200"></canvas></div>
+      <div class="stats-card"><h3>心情概览</h3><div class="mood-summary" id="moodSummary"></div></div>
+    </div>
+    <div class="stats-summary"><h3>本周总结</h3><div class="summary-items" id="summaryItems"></div></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal settings-panel">
+    <h2><span>⚙️ 设置</span><button class="close-btn" onclick="closeSettings()">✕</button></h2>
+    <div class="settings-section">
+      <h3>☁️ 跨设备同步（Supabase）</h3>
+      <div class="form-group"><label>Supabase URL</label><input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
+      <div class="form-group"><label>Anon Key</label><input type="text" id="sbKey" placeholder="eyJ…"></div>
+      <div id="sbStatus" style="font-size:12px;margin-bottom:8px"></div>
+      <button class="btn-sm primary" onclick="connectSupabase()">连接并同步</button>
+      <button class="btn-sm ghost" onclick="disconnectSupabase()" style="margin-left:6px">断开</button>
+      <p class="hint">注册 supabase.com 免费，创建项目后获取 URL 和 Key。连接后数据自动云端同步，多设备可查看。</p>
+    </div>
+    <div class="settings-section">
+      <h3>🌤️ 天气</h3>
+      <div class="form-group"><label>和风天气 API Key</label><input type="text" id="wKey" placeholder="免费注册 dev.qweather.com"></div>
+      <div class="form-group"><label>城市</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="wCity" placeholder="如：济南" style="flex:1">
+          <button class="btn-sm primary" onclick="searchCity()">搜索</button>
+        </div>
+      </div>
+      <div id="cityResults" style="font-size:12px;margin-bottom:8px"></div>
+      <div id="wStatus" style="font-size:12px;margin-bottom:8px"></div>
+      <p class="hint">免费注册 dev.qweather.com，创建项目获取 Key，搜索并选择你的城市。</p>
+    </div>
+    <div class="settings-section">
+      <h3>📦 数据管理</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm ghost" onclick="exportData()">导出数据</button>
+        <button class="btn-sm ghost" onclick="document.getElementById('importFile').click()">导入数据</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="btn-sm warn" onclick="clearAllData()">清空所有数据</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== CONFIG ======
+const CATS=[
+  {key:'work',name:'工作',color:'#4A90D9'},
+  {key:'study',name:'学习',color:'#2ECC71'},
+  {key:'fun',name:'娱乐',color:'#F39C12'},
+  {key:'life',name:'生活',color:'#9B59B6'},
+  {key:'exercise',name:'运动',color:'#1ABC9C'},
+  {key:'other',name:'其他',color:'#95A5A6'}
+];
+const MOODS=[
+  {key:'happy',emoji:'😊',name:'开心'},
+  {key:'calm',emoji:'😌',name:'平静'},
+  {key:'focused',emoji:'🧐',name:'专注'},
+  {key:'tired',emoji:'😴',name:'疲惫'},
+  {key:'anxious',emoji:'😰',name:'焦虑'},
+  {key:'sad',emoji:'😢',name:'低落'},
+  {key:'upset',emoji:'😤',name:'烦躁'}
+];
+const WDAY=['周一','周二','周三','周四','周五','周六','周日'];
+const WDAY_S=['一','二','三','四','五','六','日'];
+const ROW_H=42;
+const TOTAL_H=24;
+
+// ====== STATE ======
+let currentWeek=getMonday(new Date());
+let calMonth=new Date();
+let appData=loadLocal();
+let weatherData={};
+let sbClient=null;
+let selCat='work',selMood='';
+let settings=getSettings();
+
+// ====== UTILS ======
+function getMonday(d){d=new Date(d);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);return new Date(d.getFullYear(),d.getMonth(),diff)}
+function fmtD(d){return d.getFullYear()+'-'+S(d.getMonth()+1)+'-'+S(d.getDate())}
+function fmtDCN(d){return(d.getMonth()+1)+'/'+d.getDate()}
+function S(n){return String(n).padStart(2,'0')}
+function weekDates(mon){const r=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(d.getDate()+i);r.push(d)}return r}
+function weekStr(mon){const sun=new Date(mon);sun.setDate(sun.getDate()+6);return fmtDCN(mon)+' — '+fmtDCN(sun)}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function isToday(d){return fmtD(d)===fmtD(new Date())}
+function toast(m){const e=document.createElement('div');e.className='toast';e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),2000)}
+function minToT(m){return S(Math.floor(m/60))+':'+S(m%60)}
+
+// ====== LOCAL DATA ======
+function loadLocal(){try{return JSON.parse(localStorage.getItem('wt_data'))||{activities:[],moods:{}}}catch(e){return{activities:[],moods:{}}}}
+function saveLocal(){localStorage.setItem('wt_data',JSON.stringify(appData))}
+function getDayActs(ds){return appData.activities.filter(a=>a.date===ds).sort((a,b)=>a.startMin-b.startMin)}
+function getWeekActs(mon){const ds=weekDates(mon).map(fmtD);return appData.activities.filter(a=>ds.includes(a.date))}
+function getMood(ds){return appData.moods[ds]||''}
+function setMood(ds,m){if(m)appData.moods[ds]=m;else delete appData.moods[ds];saveLocal();syncUp()}
+
+// ====== SETTINGS ======
+function getSettings(){try{return JSON.parse(localStorage.getItem('wt_settings'))||{}}catch(e){return{}}}
+function saveSettingsToLS(){localStorage.setItem('wt_settings',JSON.stringify(settings))}
+
+// ====== SUPABASE ======
+function initSB(){
+  if(!settings.sbUrl||!settings.sbKey){sbClient=null;return}
+  try{sbClient=supabase.createClient(settings.sbUrl,settings.sbKey)}catch(e){sbClient=null;console.error('SB init fail',e)}
+}
+async function syncDown(){
+  if(!sbClient)return;
+  try{
+    const{data:a1}=await sbClient.from('activities').select('*');
+    const{data:a2}=await sbClient.from('day_moods').select('*');
+    if(a1)appData.activities=a1.map(r=>({id:r.id,date:r.date,name:r.name,category:r.category,startMin:r.start_min,endMin:r.end_min,mood:r.mood,notes:r.notes}));
+    if(a2)appData.moods=Object.fromEntries(a2.map(r=>[r.date,r.mood]));
+    saveLocal();renderGrid();
+  }catch(e){console.error('syncDown fail',e)}
+}
+async function syncUp(){
+  if(!sbClient)return;
+  try{
+    // Upsert all activities
+    const rows=appData.activities.map(a=>({id:a.id,date:a.date,name:a.name,category:a.category,start_min:a.startMin,end_min:a.endMin,mood:a.mood||null,notes:a.notes||null}));
+    if(rows.length>0)await sbClient.from('activities').upsert(rows,{onConflict:'id'});
+    // Upsert moods
+    const mrows=Object.entries(appData.moods).map(([date,mood])=>({date,mood}));
+    if(mrows.length>0)await sbClient.from('day_moods').upsert(mrows,{onConflict:'date'});
+  }catch(e){console.error('syncUp fail',e)}
+}
+async function connectSB(){
+  const url=document.getElementById('sbUrl').value.trim();
+  const key=document.getElementById('sbKey').value.trim();
+  if(!url||!key){toast('请填写 URL 和 Key');return}
+  settings.sbUrl=url;settings.sbKey=key;saveSettingsToLS();
+  initSB();
+  if(sbClient){
+    // Try to create tables if not exist
+    try{
+      await sbClient.from('activities').select('id').limit(1);
+      document.getElementById('sbStatus').innerHTML='<span class="status-dot ok"></span>已连接';
+      await syncDown();
+      toast('云端同步完成 ✓');
+    }catch(e){
+      document.getElementById('sbStatus').innerHTML='<span class="status-dot no"></span>表不存在，请先创建数据表';
+      toast('连接成功但数据表未创建，请查看设置说明');
+    }
+  }
+  updateSyncBadge();
+}
+function disconnectSB(){
+  settings.sbUrl='';settings.sbKey='';saveSettingsToLS();
+  sbClient=null;updateSyncBadge();
+  document.getElementById('sbStatus').innerHTML='<span class="status-dot no"></span>未连接';
+  toast('已断开云同步');
+}
+function updateSyncBadge(){
+  const b=document.getElementById('syncBadge');
+  if(sbClient){b.className='sync-badge cloud';b.textContent='☁️ 已同步'}
+  else{b.className='sync-badge local';b.textContent='📁 本地'}
+}
+
+// ====== WEATHER ======
+const WICON={100:'☀️',101:'🌤️',102:'⛅',103:'🌥️',104:'☁️',150:'☀️',151:'🌤️',300:'🌧️',301:'⛈️',302:'⛈️',305:'🌦️',306:'🌧️',307:'🌧️',308:'🌧️',309:'🌧️',310:'⛈️',311:'⛈️',312:'⛈️',313:'🌨️',314:'🌨️',315:'🌨️',399:'🌧️',400:'🌨️',401:'🌨️',402:'🌨️',403:'🌨️',404:'🌨️',405:'🌨️',406:'🌨️',407:'🌨️',408:'🌨️',409:'🌨️',410:'🌨️',499:'🌨️',500:'🌫️',501:'🌫️',502:'🌫️',503:'🌫️',504:'🌫️',507:'🌫️',508:'🌫️',509:'🌫️',510:'🌫️',511:'🌫️',512:'🌫️',513:'🌫️',514:'🌫️',515:'🌫️',900:'🌡️',999:'🌡️'};
+async function searchCity(){
+  const key=settings.wKey||document.getElementById('wKey').value.trim();
+  const city=document.getElementById('wCity').value.trim();
+  if(!key||!city){toast('请填写 API Key 和城市名');return}
+  settings.wKey=key;saveSettingsToLS();
+  try{
+    const r=await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(city)}&key=${key}`);
+    const d=await r.json();
+    if(d.code==='200'&&d.location.length>0){
+      const el=document.getElementById('cityResults');
+      el.innerHTML=d.location.slice(0,5).map(l=>`<div style="padding:4px 8px;cursor:pointer;border-radius:4px;margin:2px 0;transition:background .15s" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''" onclick="selectCity('${l.id}','${l.name}')">${l.name} (${l.adm2||l.adm1})</div>`).join('');
+    }else{toast('未找到城市，请检查城市名')}
+  }catch(e){toast('搜索失败，请检查网络')}
+}
+function selectCity(id,name){
+  settings.wLocId=id;settings.wCityName=name;saveSettingsToLS();
+  document.getElementById('cityResults').innerHTML=`<span class="status-dot ok"></span>已选择: ${name}`;
+  document.getElementById('wCity').value=name;
+  fetchWeather();
+}
+async function fetchWeather(){
+  if(!settings.wKey||!settings.wLocId)return;
+  try{
+    const r=await fetch(`https://devapi.qweather.com/v7/weather/7d?location=${settings.wLocId}&key=${settings.wKey}`);
+    const d=await r.json();
+    if(d.code==='200'){weatherData=Object.fromEntries(d.daily.map(day=>[day.fxDate,day]));renderGrid()}
+  }catch(e){console.error('weather fail',e)}
+}
+function weatherIcon(code){return WICON[code]||'🌡️'}
+
+// ====== RENDER LEGEND ======
+function renderLegend(){document.getElementById('legend').innerHTML=CATS.map(c=>`<div class="legend-item"><div class="legend-dot" style="background:${c.color}"></div>${c.name}</div>`).join('')}
+
+// ====== RENDER GRID ======
+function renderGrid(){
+  const dates=weekDates(currentWeek);
+  document.getElementById('weekLabel').textContent=weekStr(currentWeek);
+
+  // Day headers
+  const dh=document.getElementById('dayHeaders');
+  let hh='<div class="corner-cell"></div>';
+  dates.forEach((d,i)=>{
+    const td=isToday(d)?'today':'';
+    const me=getMood(fmtD(d));
+    const meE=me?MOODS.find(m=>m.key===me)?.emoji||'':'';
+    const ds=fmtD(d);
+    const w=weatherData[ds];
+    const wHtml=w?`<div class="day-weather"><span class="w-icon">${weatherIcon(parseInt(w.iconDay))}</span><span class="w-temp">${w.tempMin}°~${w.tempMax}°</span></div>`:'';
+    hh+=`<div class="day-header ${td}">
+      <div class="day-name">${WDAY[i]}</div>
+      <div class="day-date">${fmtDCN(d)}</div>
+      ${wHtml}
+      <div class="day-mood" onclick="openMoodPopup(event,'${ds}')" title="点击设置心情">${meE||'➕'}</div>
+    </div>`;
+  });
+  dh.innerHTML=hh;
+
+  // Time grid
+  const tg=document.getElementById('timeGrid');
+  tg.style.gridTemplateColumns=`48px repeat(7,1fr)`;
+  tg.style.gridTemplateRows=`repeat(${TOTAL_H},${ROW_H}px)`;
+  tg.innerHTML='';
+
+  // Time labels
+  for(let h=0;h<TOTAL_H;h++){
+    const tl=document.createElement('div');
+    tl.className='time-label';
+    tl.textContent=S(h)+':00';
+    tl.style.gridRow=h+1;tl.style.gridColumn=1;
+    tg.appendChild(tl);
+  }
+
+  // Day columns
+  dates.forEach((d,ci)=>{
+    const ds=fmtD(d);
+    const acts=getDayActs(ds);
+    const col=document.createElement('div');
+    col.className='day-column';
+    col.style.gridRow='1/-1';col.style.gridColumn=ci+2;
+    col.style.position='relative';
+
+    for(let h=0;h<TOTAL_H;h++){
+      const line=document.createElement('div');
+      line.className='hour-line';
+      line.ondblclick=()=>openAddModal(ds,h);
+      col.appendChild(line);
+    }
+
+    acts.forEach(a=>{
+      const cat=CATS.find(c=>c.key===a.category)||CATS[5];
+      const top=(a.startMin/60)*ROW_H;
+      const bot=(a.endMin/60)*ROW_H;
+      const h=Math.max(bot-top,18);
+      const meE=a.mood?MOODS.find(m=>m.key===a.mood)?.emoji||'':'';
+      const ts=minToT(a.startMin)+'-'+minToT(a.endMin);
+
+      const bk=document.createElement('div');
+      bk.className='act-block';
+      bk.style.cssText=`top:${top}px;height:${h}px;background:${cat.color}18;border-left-color:${cat.color};color:${cat.color}`;
+      bk.onclick=()=>openEditModal(a.id);
+      bk.title=a.name+'\n'+ts+(a.notes?'\n📝 '+a.notes:'');
+      let inner=`<span class="act-name">${a.name}</span>`;
+      if(h>26)inner+=`<div class="act-time">${ts}</div>`;
+      if(meE)inner+=`<span class="act-mood">${meE}</span>`;
+      if(a.notes&&h>36)inner+=`<span class="act-note-dot"></span>`;
+      bk.innerHTML=inner;
+      col.appendChild(bk);
+    });
+    tg.appendChild(col);
+  });
+  updateNowLine();
+}
+
+function updateNowLine(){
+  const now=new Date();
+  const todayStr=fmtD(now);
+  const dates=weekDates(currentWeek).map(fmtD);
+  const ci=dates.indexOf(todayStr);
+  const line=document.getElementById('timeNowLine');
+  if(ci===-1){line.style.display='none';return}
+  const cm=now.getHours()*60+now.getMinutes();
+  const top=(cm/60)*ROW_H;
+  line.style.display='block';line.style.top=top+'px';
+  const grid=document.getElementById('timeGrid');
+  const cols=grid.querySelectorAll('.day-column');
+  if(cols[ci]){
+    const cr=cols[ci].getBoundingClientRect();
+    const gr=grid.getBoundingClientRect();
+    line.style.left=(cr.left-gr.left)+'px';
+    line.style.width=cr.width+'px';
+  }
+}
+
+// ====== WEEK NAV ======
+function changeWeek(dir){currentWeek=new Date(currentWeek);currentWeek.setDate(currentWeek.getDate()+dir*7);renderGrid()}
+function goCurrentWeek(){currentWeek=getMonday(new Date());renderGrid();fetchWeather()}
+
+// ====== CALENDAR ======
+function openCalendar(){calMonth=new Date(currentWeek);renderCal();document.getElementById('calOverlay').classList.add('active')}
+function closeCalendar(e){if(!e||e.target===document.getElementById('calOverlay'))document.getElementById('calOverlay').classList.remove('active')}
+function calPrev(){calMonth.setMonth(calMonth.getMonth()-1);renderCal()}
+function calNext(){calMonth.setMonth(calMonth.getMonth()+1);renderCal()}
+function renderCal(){
+  const y=calMonth.getFullYear(),m=calMonth.getMonth();
+  document.getElementById('calTitle').textContent=y+'年'+(m+1)+'月';
+  const grid=document.getElementById('calGrid');
+  let html=WDAY_S.map(w=>`<div class="cal-wd">${w}</div>`).join('');
+  const first=new Date(y,m,1);
+  const startDay=first.getDay()||7;// Mon=1
+  const startDate=new Date(first);startDate.setDate(startDate.getDate()-(startDay-1));
+  const curWeekMon=fmtD(currentWeek);
+  const allDates=new Set(appData.activities.map(a=>a.date));
+  for(let i=0;i<42;i++){
+    const d=new Date(startDate);d.setDate(d.getDate()+i);
+    const ds=fmtD(d);
+    const isCur=d.getMonth()===m;
+    const isTd=isToday(d);
+    const isSel=ds===curWeekMon;
+    const hasD=allDates.has(ds);
+    let cls='cal-day';
+    if(!isCur)cls+=' other-month';
+    if(isTd)cls+=' today';
+    if(isSel)cls+=' selected';
+    if(hasD)cls+=' has-data';
+    html+=`<div class="${cls}" onclick="jumpToWeek('${ds}')">${d.getDate()}</div>`;
+  }
+  grid.innerHTML=html;
+}
+function jumpToWeek(ds){
+  const d=new Date(ds);
+  currentWeek=getMonday(d);
+  renderGrid();fetchWeather();
+  document.getElementById('calOverlay').classList.remove('active');
+}
+
+// ====== ACT MODAL ======
+function buildTimeOpts(){
+  const s1=document.getElementById('actStart'),s2=document.getElementById('actEnd');
+  s1.innerHTML='';s2.innerHTML='';
+  for(let m=0;m<1440;m+=30){const o=`<option value="${m}">${minToT(m)}</option>`;s1.innerHTML+=o;s2.innerHTML+=o}
+}
+function buildCatOpts(){
+  document.getElementById('catOpts').innerHTML=CATS.map(c=>`<div class="cat-opt ${c.key===selCat?'sel':''}" style="background:${c.color}18;color:${c.color}" onclick="selCat='${c.key}';buildCatOpts()">${c.name}</div>`).join('');
+}
+function buildMoodOpts(){
+  let h=MOODS.map(m=>`<div class="mood-opt ${m.key===selMood?'sel':''}" onclick="selMood='${m.key}';buildMoodOpts()" title="${m.name}">${m.emoji}</div>`).join('');
+  if(selMood)h+=`<div class="mood-opt" onclick="selMood='';buildMoodOpts()" style="font-size:13px">✕</div>`;
+  document.getElementById('moodOpts').innerHTML=h;
+}
+function openAddModal(ds,h){
+  document.getElementById('modalTitle').textContent='添加事项';
+  document.getElementById('editId').value='';
+  document.getElementById('editDate').value=ds;
+  document.getElementById('actName').value='';
+  document.getElementById('actNotes').value='';
+  selCat='work';selMood='';
+  buildCatOpts();buildMoodOpts();buildTimeOpts();
+  document.getElementById('actStart').value=h*60;
+  document.getElementById('actEnd').value=Math.min((h+1)*60,1440);
+  document.getElementById('delBtn').style.display='none';
+  document.getElementById('actModal').classList.add('active');
+  setTimeout(()=>document.getElementById('actName').focus(),100);
+}
+function openEditModal(id){
+  const a=appData.activities.find(x=>x.id===id);if(!a)return;
+  document.getElementById('modalTitle').textContent='编辑事项';
+  document.getElementById('editId').value=id;
+  document.getElementById('editDate').value=a.date;
+  document.getElementById('actName').value=a.name;
+  document.getElementById('actNotes').value=a.notes||'';
+  selCat=a.category;selMood=a.mood||'';
+  buildCatOpts();buildMoodOpts();buildTimeOpts();
+  document.getElementById('actStart').value=a.startMin;
+  document.getElementById('actEnd').value=a.endMin;
+  document.getElementById('delBtn').style.display='inline-block';
+  document.getElementById('actModal').classList.add('active');
+}
+function closeActModal(){document.getElementById('actModal').classList.remove('active')}
+function saveActivity(){
+  const name=document.getElementById('actName').value.trim();
+  if(!name){toast('请输入事项名称');return}
+  const ds=document.getElementById('editDate').value;
+  const sm=parseInt(document.getElementById('actStart').value);
+  const em=parseInt(document.getElementById('actEnd').value);
+  if(em<=sm){toast('结束时间需晚于开始时间');return}
+  const notes=document.getElementById('actNotes').value.trim();
+  const id=document.getElementById('editId').value;
+  if(id){
+    const idx=appData.activities.findIndex(a=>a.id===id);
+    if(idx>=0)appData.activities[idx]={...appData.activities[idx],name,category:selCat,startMin:sm,endMin:em,mood:selMood,notes};
+  }else{
+    appData.activities.push({id:genId(),date:ds,name,category:selCat,startMin:sm,endMin:em,mood:selMood,notes});
+  }
+  saveLocal();syncUp();closeActModal();renderGrid();toast('已保存 ✓');
+}
+function deleteActivity(){
+  const id=document.getElementById('editId').value;if(!id)return;
+  appData.activities=appData.activities.filter(a=>a.id!==id);
+  saveLocal();syncUp();closeActModal();renderGrid();toast('已删除');
+}
+
+// ====== DAY MOOD POPUP ======
+function openMoodPopup(e,ds){
+  e.stopPropagation();
+  const pop=document.getElementById('moodPopup');
+  const cur=getMood(ds);
+  pop.innerHTML=MOODS.map(m=>`<div class="mp-opt ${m.key===cur?'style=\"border-color:var(--accent)\"':''}" onclick="setMood('${ds}','${m.key}');this.parentElement.classList.remove('active');renderGrid()">${m.emoji}</div>`).join('');
+  pop.innerHTML+=`<div class="mp-opt mp-clear" onclick="setMood('${ds}','');this.parentElement.classList.remove('active');renderGrid()">✕</div>`;
+  const r=e.target.getBoundingClientRect();
+  pop.style.top=(r.bottom+6)+'px';pop.style.left=Math.max(10,r.left-70)+'px';
+  pop.classList.add('active');
+}
+document.addEventListener('click',()=>document.getElementById('moodPopup').classList.remove('active'));
+
+// ====== STATS ======
+function showStats(){renderStats();document.getElementById('statsOverlay').classList.add('active')}
+function closeStats(){document.getElementById('statsOverlay').classList.remove('active')}
+function renderStats(){
+  const acts=getWeekActs(currentWeek);
+  const dates=weekDates(currentWeek).map(fmtD);
+  const cs={};CATS.forEach(c=>{cs[c.key]={...c,totalMin:0,count:0}});
+  acts.forEach(a=>{if(cs[a.category]){cs[a.category].totalMin+=(a.endMin-a.startMin);cs[a.category].count++}});
+  const totalMin=Object.values(cs).reduce((s,c)=>s+c.totalMin,0);
+
+  drawPie(cs,totalMin);
+  document.getElementById('catStatsList').innerHTML=CATS.map(c=>{
+    const s=cs[c.key],hrs=(s.totalMin/60).toFixed(1),pct=totalMin?Math.round(s.totalMin/totalMin*100):0;
+    return s.totalMin>0?`<li><div class="cc" style="background:${c.color}"></div><div class="cn">${c.name} (${s.count}项)</div><div class="ch">${hrs}h</div><div class="cp">${pct}%</div></li>`:'';
+  }).filter(Boolean).join('')||'<li style="color:var(--text2)">暂无数据</li>';
+
+  const dd=dates.map(d=>acts.filter(a=>a.date===d).reduce((s,a)=>s+(a.endMin-a.startMin),0));
+  drawBar(dd);
+
+  const mc={};MOODS.forEach(m=>{mc[m.key]={...m,count:0}});
+  acts.forEach(a=>{if(a.mood&&mc[a.mood])mc[a.mood].count++});
+  dates.forEach(d=>{const mk=getMood(d);if(mk&&mc[mk])mc[mk].count++});
+  document.getElementById('moodSummary').innerHTML=MOODS.filter(m=>mc[m.key].count>0).map(m=>`<div class="mood-count">${m.emoji} <span>${mc[m.key].count}</span></div>`).join('')||'<span style="color:var(--text2)">暂无心情记录</span>';
+
+  const mostCat=Object.values(cs).sort((a,b)=>b.totalMin-a.totalMin)[0];
+  const busiest=dd.indexOf(Math.max(...dd));
+  document.getElementById('summaryItems').innerHTML=`
+    <div class="summary-item"><div class="val">${(totalMin/60).toFixed(1)}h</div><div class="lbl">总时长</div></div>
+    <div class="summary-item"><div class="val">${acts.length}</div><div class="lbl">事项数</div></div>
+    <div class="summary-item"><div class="val">${mostCat&&mostCat.totalMin>0?mostCat.name:'-'}</div><div class="lbl">最多分类</div></div>
+    <div class="summary-item"><div class="val">${busiest>=0?WDAY[busiest]:'-'}</div><div class="lbl">最忙一天</div></div>`;
+}
+function drawPie(cs,totalMin){
+  const cv=document.getElementById('pieChart'),ctx=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1;cv.width=280*dpr;cv.height=280*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,280,280);
+  if(!totalMin){ctx.fillStyle='#ccc';ctx.font='13px Noto Sans SC';ctx.textAlign='center';ctx.fillText('暂无数据',140,145);return}
+  const cx=140,cy=130,r=88;let sa=-Math.PI/2;
+  CATS.forEach(c=>{const s=cs[c.key];if(!s.totalMin)return;const sl=(s.totalMin/totalMin)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,sa,sa+sl);ctx.closePath();ctx.fillStyle=c.color;ctx.fill();
+    const pct=Math.round(s.totalMin/totalMin*100);
+    if(pct>=5){const ma=sa+sl/2;ctx.fillStyle='#fff';ctx.font='bold 10px Noto Sans SC';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(pct+'%',cx+Math.cos(ma)*r*.62,cy+Math.sin(ma)*r*.62)}
+    sa+=sl});
+  ctx.beginPath();ctx.arc(cx,cy,r*.48,0,Math.PI*2);ctx.fillStyle='#f8f9fa';ctx.fill();
+  ctx.fillStyle='#1a1a2e';ctx.font='bold 17px Noto Sans SC';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((totalMin/60).toFixed(1)+'h',cx,cy-5);
+  ctx.fillStyle='#6c757d';ctx.font='10px Noto Sans SC';ctx.fillText('总时长',cx,cy+11);
+}
+function drawBar(dd){
+  const cv=document.getElementById('barChart'),ctx=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1;cv.width=280*dpr;cv.height=200*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,280,200);
+  const mx=Math.max(...dd,60),bw=22,gap=9,sx=22,ch=148,by=170;
+  const maxH=Math.ceil(mx/60);
+  ctx.fillStyle='#aaa';ctx.font='9px Noto Sans SC';ctx.textAlign='right';
+  for(let i=0;i<=maxH;i++){const y=by-(i/maxH)*ch;ctx.fillText(i+'h',sx-3,y+3);ctx.strokeStyle='#f0f0f0';ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(270,y);ctx.stroke()}
+  const colors=['#4A90D9','#2ECC71','#F39C12','#9B59B6','#1ABC9C','#E74C3C','#95A5A6'];
+  dd.forEach((m,i)=>{const x=sx+i*(bw+gap)+8,h=(m/mx)*ch,y=by-h;
+    const rd=3;ctx.beginPath();ctx.moveTo(x,by);ctx.lineTo(x,y+rd);ctx.quadraticCurveTo(x,y,x+rd,y);ctx.lineTo(x+bw-rd,y);ctx.quadraticCurveTo(x+bw,y,x+bw,y+rd);ctx.lineTo(x+bw,by);ctx.closePath();ctx.fillStyle=colors[i];ctx.fill();
+    ctx.fillStyle='#888';ctx.font='9px Noto Sans SC';ctx.textAlign='center';ctx.fillText(WDAY[i],x+bw/2,by+13);
+    if(m>0){ctx.fillStyle='#333';ctx.font='bold 9px Noto Sans SC';ctx.fillText((m/60).toFixed(1)+'h',x+bw/2,y-5)}});
+}
+
+// ====== SETTINGS ======
+function openSettings(){
+  document.getElementById('sbUrl').value=settings.sbUrl||'';
+  document.getElementById('sbKey').value=settings.sbKey||'';
+  document.getElementById('wKey').value=settings.wKey||'';
+  document.getElementById('wCity').value=settings.wCityName||'';
+  document.getElementById('sbStatus').innerHTML=sbClient?'<span class="status-dot ok"></span>已连接':'<span class="status-dot no"></span>未连接';
+  document.getElementById('wStatus').innerHTML=settings.wLocId?`<span class="status-dot ok"></span>已配置: ${settings.wCityName||''}`:'<span class="status-dot no"></span>未配置';
+  document.getElementById('cityResults').innerHTML='';
+  document.getElementById('settingsOverlay').classList.add('active');
+}
+function closeSettings(){document.getElementById('settingsOverlay').classList.remove('active')}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(appData,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`一周做事表_${fmtD(new Date())}.json`;a.click();toast('数据已导出');
+}
+function importData(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=ev=>{
+    try{const d=JSON.parse(ev.target.result);appData=d;saveLocal();syncUp();renderGrid();toast('数据已导入 ✓')}
+    catch(err){toast('文件格式错误')}
+  };r.readAsText(f);e.target.value='';
+}
+function clearAllData(){
+  if(!confirm('确定清空所有数据？此操作不可恢复！'))return;
+  appData={activities:[],moods:{}};saveLocal();syncUp();renderGrid();toast('数据已清空');
+}
+
+// ====== KEYBOARD ======
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeActModal();closeStats();closeSettings();document.getElementById('calOverlay').classList.remove('active');document.getElementById('moodPopup').classList.remove('active')}
+});
+
+// ====== INIT ======
+function init(){
+  renderLegend();renderGrid();initSB();updateSyncBadge();
+  // Load settings into weather
+  if(settings.wKey&&settings.wLocId)fetchWeather();
+  // Auto scroll to current hour
+  setTimeout(()=>{
+    const sa=document.getElementById('scrollArea');
+    const now=new Date();
+    const h=now.getHours();
+    if(h>=0&&h<=23){sa.scrollTop=Math.max(0,(h-2)*ROW_H)}
+  },150);
+  setInterval(updateNowLine,60000);
+}
+init();
+</script>
+</body>
+</html>
