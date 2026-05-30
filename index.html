@@ -377,7 +377,9 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
         <button class="bsm g" onclick="document.getElementById('impF').click()">导入</button>
         <input type="file" id="impF" accept=".json" style="display:none" onchange="impD(event)">
         <button class="bsm w" onclick="clrD()">清空</button>
+        <button class="bsm p" onclick="shareCfg()">🔗 生成专属链接</button>
       </div>
+      <p class="ht">生成专属链接后收藏书签，换设备打开即可自动配置</p>
     </div>
   </div>
 </div>
@@ -672,14 +674,29 @@ function clSet(){document.getElementById('setOv').classList.remove('active')}
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`做事表_${fD(new Date())}.json`;a.click();toast('已导出')}
 function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{D=JSON.parse(ev.target.result);saveL();syncU();render();toast('已导入 ✓')}catch(e){toast('格式错误')}};r.readAsText(f);e.target.value=''}
 function clrD(){if(!confirm('确定清空？不可恢复！'))return;D={a:[],m:{}};saveL();syncU();render();toast('已清空')}
+function shareCfg(){const c={};if(cfg.su)c.su=cfg.su;if(cfg.sk)c.sk=cfg.sk;if(cfg.wh)c.wh=cfg.wh;if(cfg.wk)c.wk=cfg.wk;if(cfg.wl)c.wl=cfg.wl;if(cfg.wn)c.wn=cfg.wn;const url=location.origin+location.pathname+'#'+encodeURIComponent(JSON.stringify(c));navigator.clipboard.writeText(url).then(()=>toast('专属链接已复制 ✓')).catch(()=>{prompt('复制以下链接：',url)})}
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){clAM();clSt();clSet();document.getElementById('mpop').classList.remove('active')}});
 window.addEventListener('resize',()=>render());
 
 function init(){
+  // 从URL hash读取配置（跨设备一次性配置）
+  if(location.hash.length>1){try{const h=JSON.parse(decodeURIComponent(location.hash.slice(1)));Object.keys(h).forEach(k=>{if(h[k])cfg[k]=h[k]});saveCfg();history.replaceState(null,'',location.pathname)}catch(e){}}
+  // 首次打开自动填入默认配置（只在localStorage为空时）
+  const saved=localStorage.getItem('wt2_cfg');
+  if(!saved||saved==='{}'){
+    cfg.su=cfg.su||'https://fumgeprorccelgbojusk.supabase.co';
+    cfg.sk=cfg.sk||'sb_publishable_PPI3-QnqjZ5XAglnh8JCLg_sfr0NIiY';
+    cfg.wh=cfg.wh||'kr5hv74j9b.re.qweatherapi.com';
+    cfg.wk=cfg.wk||'759f4736e28e4939a8fe53e9db677bd3';
+    cfg.wl=cfg.wl||'101120101';
+    cfg.wn=cfg.wn||'济南';
+    saveCfg();
+  }
   renderLeg();initSB();updBadge();
   selDate=fD(new Date());
   if(cfg.wk&&cfg.wl)fetchW();
+  if(sbc)syncD();
   switchView('cal');
 }
 init();
