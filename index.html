@@ -80,7 +80,9 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
 .dd-hdr .dd-mood{font-size:18px;cursor:pointer}
 .dd-hdr .dd-empty{font-size:11px;color:var(--text3)}
 .dd-timeline{position:relative;max-height:360px;overflow-y:auto}
-.dd-tg{display:grid;grid-template-columns:48px 1fr;position:relative}
+.dd-tg{display:grid;grid-template-columns:48px 1fr;grid-template-rows:repeat(24,var(--row-h));position:relative}
+/* 日历日详情中的事项色块，需要偏移时间标签列的宽度 */
+.dd-tg .ab{left:50px;right:2px}
 .dd-tl{height:var(--row-h);display:flex;align-items:flex-start;justify-content:center;font-size:10px;color:var(--text3);border-right:1px solid var(--border);border-bottom:1px solid #f5f5f5;padding-top:2px;user-select:none}
 .dd-col{position:relative;border-bottom:1px solid #f5f5f5;cursor:pointer;min-height:var(--row-h)}
 .dd-col:hover{background:rgba(91,127,255,.03)}
@@ -135,7 +137,9 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
 .mday-hdr .mdh-r{display:flex;align-items:center;gap:6px}
 .mday-hdr .mdh-weather{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:2px}
 .mday-hdr .mdh-mood{font-size:18px;cursor:pointer}
-.mtime{display:grid;grid-template-columns:44px 1fr;position:relative}
+.mtime{display:grid;grid-template-columns:44px 1fr;grid-template-rows:repeat(24,var(--row-h));position:relative}
+/* 手机日视图事项色块偏移 */
+.mtime .ab{left:46px;right:2px}
 .mtl{height:var(--row-h);display:flex;align-items:flex-start;justify-content:center;font-size:10px;color:var(--text3);border-right:1px solid var(--border);border-bottom:1px solid #f5f5f5;padding-top:2px;user-select:none}
 .mcol{position:relative;border-bottom:1px solid #f5f5f5}
 .mcol:active{background:rgba(91,127,255,.03)}
@@ -433,8 +437,19 @@ function switchView(v){
   document.getElementById('vtogWk').className=v==='week'?'active':'';
   document.getElementById('calView').style.display=v==='cal'?'block':'none';
   document.getElementById('wnavWk').style.display=v==='week'?'flex':'none';
-  if(v==='cal'){renderCalView();document.getElementById('gwWrap').style.display='none';document.getElementById('dtabs').style.display='none';document.getElementById('mday').style.display='none'}
-  else{document.getElementById('dayDetail')?.classList.remove('active');renderWkView()}
+  if(v==='cal'){
+    renderCalView();
+    document.getElementById('gwWrap').style.display='none';
+    document.getElementById('dtabs').style.display='none';
+    document.getElementById('mday').style.display='none';
+  }else{
+    document.getElementById('dayDetail')?.classList.remove('active');
+    // 清除inline style让CSS媒体查询重新生效
+    document.getElementById('dtabs').style.display='';
+    document.getElementById('mday').style.display='';
+    document.getElementById('gwWrap').style.display='';
+    renderWkView();
+  }
 }
 
 // ========== CALENDAR VIEW ==========
