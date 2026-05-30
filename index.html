@@ -157,8 +157,8 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
 
 /* Modals */
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
-.mo.active{display:flex}
-.md{background:var(--card);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:440px;max-height:85vh;max-height:85dvh;overflow-y:auto;animation:mIn .25s ease}
+.mo.active{display:flex;align-items:center;justify-content:center}
+.md{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:440px;max-height:85vh;max-height:85dvh;overflow-y:auto;animation:mIn .25s ease}
 @keyframes mIn{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
 .md h2{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 .cb{width:28px;height:28px;border-radius:50%;border:none;background:#f0f0f0;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text2)}
@@ -193,7 +193,7 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
 .mpop .mpc{font-size:11px;color:var(--text2);background:#f0f0f0}
 
 /* Stats */
-.sp{background:var(--card);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:700px;max-height:85vh;max-height:85dvh;overflow-y:auto;animation:mIn .25s ease}
+.sp{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:700px;max-height:85vh;max-height:85dvh;overflow-y:auto;animation:mIn .25s ease}
 .sp h2{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sc{background:#f8f9fa;border-radius:10px;padding:14px}
@@ -242,7 +242,7 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
   .dtabs{display:block}
   .gw{display:none}
   .mday{display:block}
-  .md,.sp{border-radius:16px 16px 0 0;max-width:100%;width:100%}
+  .md,.sp{border-radius:16px;max-width:100%;width:100%}
   .sg{grid-template-columns:1fr}
   .cal-d{padding:3px 1px;min-height:28px;font-size:11px}
   .cal-d .cd-num{font-size:11px}
@@ -423,7 +423,7 @@ function disSB(){cfg.su='';cfg.sk='';saveCfg();sbc=null;updBadge();document.getE
 function updBadge(){const b=document.getElementById('sbadge');if(sbc){b.className='badge cloud';b.textContent='☁️ 同步'}else{b.className='badge local';b.textContent='📁 本地'}}
 
 // Weather
-async function srcCity(){const k=cfg.wk||document.getElementById('wK').value.trim(),c=document.getElementById('wC').value.trim();if(!k||!c){toast('请填写 Key 和城市');return}cfg.wk=k;saveCfg();try{const r=await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(c)}&key=${k}`);const d=await r.json();if(d.code==='200'&&d.location.length){document.getElementById('cRes').innerHTML=d.location.slice(0,5).map(l=>`<div style="padding:5px 8px;cursor:pointer;border-radius:4px;margin:2px 0" onclick="selCity('${l.id}','${l.name}')">${l.name} (${l.adm2||l.adm1})</div>`).join('')}else toast('未找到城市')}catch(e){toast('搜索失败')}}
+async function srcCity(){const k=cfg.wk||document.getElementById('wK').value.trim(),c=document.getElementById('wC').value.trim();if(!k||!c){toast('请填写 Key 和城市');return}cfg.wk=k;saveCfg();try{const r=await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(c)}&key=${k}`);const d=await r.json();if(d.code==='200'&&d.location.length){document.getElementById('cRes').innerHTML=d.location.slice(0,5).map(l=>`<div style="padding:5px 8px;cursor:pointer;border-radius:4px;margin:2px 0" onclick="selCity('${l.id}','${l.name}')">${l.name} (${l.adm2||l.adm1})</div>`).join('')}else{const msgs={'401':'Key无效或未激活','402':'超过请求限制','403':'无权限','404':'未找到城市'};toast(msgs[d.code]||('搜索失败('+d.code+')'))}}catch(e){toast('网络错误，Key需为Web API类型')}}
 function selCity(id,n){cfg.wl=id;cfg.wn=n;saveCfg();document.getElementById('cRes').innerHTML=`<span class="sd ok"></span>${n}`;document.getElementById('wC').value=n;fetchW()}
 async function fetchW(){if(!cfg.wk||!cfg.wl)return;try{const r=await fetch(`https://devapi.qweather.com/v7/weather/7d?location=${cfg.wl}&key=${cfg.wk}`);const d=await r.json();if(d.code==='200'){WD2=Object.fromEntries(d.daily.map(x=>[x.fxDate,x]));render()}}catch(e){}}
 function wI(c){return WIC[c]||'🌡️'}
