@@ -361,7 +361,8 @@ body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:
     </div>
     <div class="setsec">
       <h3>🌤️ 天气</h3>
-      <div class="fg"><label>和风天气 API Key</label><input id="wK" placeholder="dev.qweather.com 免费获取"></div>
+      <div class="fg"><label>API Host</label><input id="wH" placeholder="kr5hv74j9b.re.qweatherapi.com"></div>
+      <div class="fg"><label>API Key</label><input id="wK" placeholder="和风天气控制台获取"></div>
       <div class="fg"><label>城市</label>
         <div style="display:flex;gap:4px"><input id="wC" placeholder="济南" style="flex:1"><button class="bsm p" onclick="srcCity()">搜索</button></div>
       </div>
@@ -423,9 +424,11 @@ function disSB(){cfg.su='';cfg.sk='';saveCfg();sbc=null;updBadge();document.getE
 function updBadge(){const b=document.getElementById('sbadge');if(sbc){b.className='badge cloud';b.textContent='☁️ 同步'}else{b.className='badge local';b.textContent='📁 本地'}}
 
 // Weather
-async function srcCity(){const k=cfg.wk||document.getElementById('wK').value.trim(),c=document.getElementById('wC').value.trim();if(!k||!c){toast('请填写 Key 和城市');return}cfg.wk=k;saveCfg();try{const r=await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(c)}&key=${k}`);const d=await r.json();if(d.code==='200'&&d.location.length){document.getElementById('cRes').innerHTML=d.location.slice(0,5).map(l=>`<div style="padding:5px 8px;cursor:pointer;border-radius:4px;margin:2px 0" onclick="selCity('${l.id}','${l.name}')">${l.name} (${l.adm2||l.adm1})</div>`).join('')}else{const msgs={'401':'Key无效或未激活','402':'超过请求限制','403':'无权限','404':'未找到城市'};toast(msgs[d.code]||('搜索失败('+d.code+')'))}}catch(e){toast('网络错误，Key需为Web API类型')}}
+function wHost(){return cfg.wh||'devapi.qweather.com'}
+function wHeaders(){return cfg.wk?{'X-QW-Api-Key':cfg.wk}:{}}
+async function srcCity(){const k=cfg.wk||document.getElementById('wK').value.trim(),h=cfg.wh||document.getElementById('wH').value.trim(),c=document.getElementById('wC').value.trim();if(!k||!c){toast('请填写 Key 和城市');return}cfg.wk=k;if(h)cfg.wh=h;saveCfg();try{const r=await fetch(`https://${wHost()}/geo/v2/city/lookup?location=${encodeURIComponent(c)}`,{headers:wHeaders()});const d=await r.json();if(d.code==='200'&&d.location.length){document.getElementById('cRes').innerHTML=d.location.slice(0,5).map(l=>`<div style="padding:5px 8px;cursor:pointer;border-radius:4px;margin:2px 0" onclick="selCity('${l.id}','${l.name}')">${l.name} (${l.adm2||l.adm1})</div>`).join('')}else{const msgs={'401':'Key无效或未激活','402':'超过请求限制','403':'无权限','404':'未找到城市'};toast(msgs[d.code]||('搜索失败('+d.code+')'))}}catch(e){toast('网络错误')}}
 function selCity(id,n){cfg.wl=id;cfg.wn=n;saveCfg();document.getElementById('cRes').innerHTML=`<span class="sd ok"></span>${n}`;document.getElementById('wC').value=n;fetchW()}
-async function fetchW(){if(!cfg.wk||!cfg.wl)return;try{const r=await fetch(`https://devapi.qweather.com/v7/weather/7d?location=${cfg.wl}&key=${cfg.wk}`);const d=await r.json();if(d.code==='200'){WD2=Object.fromEntries(d.daily.map(x=>[x.fxDate,x]));render()}}catch(e){}}
+async function fetchW(){if(!cfg.wk||!cfg.wl)return;try{const r=await fetch(`https://${wHost()}/v7/weather/7d?location=${cfg.wl}`,{headers:wHeaders()});const d=await r.json();if(d.code==='200'){WD2=Object.fromEntries(d.daily.map(x=>[x.fxDate,x]));render()}}catch(e){}}
 function wI(c){return WIC[c]||'🌡️'}
 
 function renderLeg(){document.getElementById('leg').innerHTML=CATS.map(c=>`<div class="leg-i"><div class="leg-d" style="background:${c.color}"></div>${c.name}</div>`).join('')}
@@ -664,7 +667,7 @@ function drawPie(cs,tt){const cv=document.getElementById('pieC'),ctx=cv.getConte
 function drawBar(dd){const cv=document.getElementById('barC'),ctx=cv.getContext('2d'),dp=window.devicePixelRatio||1;cv.width=260*dp;cv.height=180*dp;ctx.scale(dp,dp);ctx.clearRect(0,0,260,180);const mx=Math.max(...dd,60),bw=20,gap=7,sx=20,ch=135,by=155,mh=Math.ceil(mx/60);ctx.fillStyle='#aaa';ctx.font='8px Noto Sans SC';ctx.textAlign='right';for(let i=0;i<=mh;i++){const y=by-(i/mh)*ch;ctx.fillText(i+'h',sx-2,y+3);ctx.strokeStyle='#f0f0f0';ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(250,y);ctx.stroke()}const cl=['#4A90D9','#2ECC71','#F39C12','#9B59B6','#1ABC9C','#E74C3C','#95A5A6'];dd.forEach((m,i)=>{const x=sx+i*(bw+gap)+6,h=m/mx*ch,y=by-h;ctx.fillStyle=cl[i];ctx.beginPath();ctx.roundRect?.(x,y,bw,h,3)||ctx.fillRect(x,y,bw,h);ctx.fillStyle='#888';ctx.font='8px Noto Sans SC';ctx.textAlign='center';ctx.fillText(WD[i],x+bw/2,by+11);if(m>0){ctx.fillStyle='#333';ctx.font='bold 8px Noto Sans SC';ctx.fillText((m/60).toFixed(1)+'h',x+bw/2,y-4)}})}
 
 // Settings
-function openSet(){document.getElementById('sbU').value=cfg.su||'';document.getElementById('sbK').value=cfg.sk||'';document.getElementById('wK').value=cfg.wk||'';document.getElementById('wC').value=cfg.wn||'';document.getElementById('sbS').innerHTML=sbc?'<span class="sd ok"></span>已连接':'<span class="sd no"></span>未连接';document.getElementById('wS').innerHTML=cfg.wl?`<span class="sd ok"></span>${cfg.wn||''}`:'<span class="sd no"></span>未配置';document.getElementById('cRes').innerHTML='';document.getElementById('setOv').classList.add('active')}
+function openSet(){document.getElementById('sbU').value=cfg.su||'';document.getElementById('sbK').value=cfg.sk||'';document.getElementById('wH').value=cfg.wh||'';document.getElementById('wK').value=cfg.wk||'';document.getElementById('wC').value=cfg.wn||'';document.getElementById('sbS').innerHTML=sbc?'<span class="sd ok"></span>已连接':'<span class="sd no"></span>未连接';document.getElementById('wS').innerHTML=cfg.wl?`<span class="sd ok"></span>${cfg.wn||''}`:'<span class="sd no"></span>未配置';document.getElementById('cRes').innerHTML='';document.getElementById('setOv').classList.add('active')}
 function clSet(){document.getElementById('setOv').classList.remove('active')}
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`做事表_${fD(new Date())}.json`;a.click();toast('已导出')}
 function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{D=JSON.parse(ev.target.result);saveL();syncU();render();toast('已导入 ✓')}catch(e){toast('格式错误')}};r.readAsText(f);e.target.value=''}
